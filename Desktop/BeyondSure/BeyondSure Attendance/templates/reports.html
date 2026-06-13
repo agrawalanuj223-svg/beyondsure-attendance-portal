@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>BeyondSure | Reports</title>
+    <style>
+        :root { --primary: #1a472a; --secondary: #8fbc8f; --accent: #f4f7f6; }
+        body { font-family: 'Segoe UI', sans-serif; background-color: var(--accent); margin: 0; padding: 0; }
+        
+        .header { background-color: white; padding: 15px 40px; display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid var(--primary); }
+        .logo-img { height: 50px; }
+        .brand-text { font-size: 20px; font-weight: bold; color: var(--primary); margin-left: 10px; }
+        .nav-links a { color: var(--primary); text-decoration: none; font-weight: 600; margin-left: 25px; transition: 0.3s; vertical-align: middle; }
+        .nav-links a:hover { color: var(--secondary); }
+        
+        .container { max-width: 900px; margin: 40px auto; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 10px 20px rgba(0,0,0,0.05); }
+        .section-title { color: var(--primary); border-left: 5px solid var(--secondary); padding-left: 15px; margin-bottom: 20px; font-size: 22px; }
+        
+        .download-box { background: #f8f9fa; padding: 25px; border-radius: 8px; border: 1px solid #eee; margin-bottom: 40px; display: flex; align-items: center; justify-content: space-between; gap: 15px; }
+        select { flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 16px; }
+        .btn-download { background-color: var(--primary); color: white; border: none; padding: 12px 25px; border-radius: 6px; font-weight: bold; font-size: 16px; cursor: pointer; transition: 0.3s; white-space: nowrap; }
+        .btn-download:hover { opacity: 0.9; }
+        
+        table { width: 100%; border-collapse: separate; border-spacing: 0; margin-top: 10px; }
+        th { background-color: #fcfcfc; padding: 15px; border-bottom: 2px solid var(--accent); color: #555; text-align: left; }
+        td { padding: 15px; border-bottom: 1px solid #eee; }
+        
+        .status-badge { padding: 6px 12px; border-radius: 12px; font-size: 12px; font-weight: bold; display: inline-block; }
+        .status-p { background-color: #e8f5e9; color: #2e7d32; }
+        .status-ab { background-color: #ffebee; color: #c62828; }
+        .status-wfh { background-color: #e3f2fd; color: #1565c0; }
+        .status-hd { background-color: #fffde7; color: #fbc02d; }
+        .status-co { background-color: #e0f2f1; color: #00796b; }
+        .status-wo, .status-h { background-color: #f3e5f5; color: #7b1fa2; }
+
+        /* Notification Badge Styling */
+        .badge-count {
+            background-color: #c62828;
+            color: white;
+            border-radius: 50%;
+            padding: 2px 7px;
+            font-size: 11px;
+            font-weight: bold;
+            margin-left: 5px;
+            display: inline-block;
+            vertical-align: middle;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+    </style>
+</head>
+<body>
+
+    <header class="header">
+        <div style="display: flex; align-items: center;">
+            <img src="{{ url_for('static', filename='logo.jpg') }}" class="logo-img" alt="BeyondSure Logo">
+            <span class="brand-text">BeyondSure</span>
+        </div>
+        <nav class="nav-links">
+            <a href="/">DASHBOARD</a>
+            <a href="/reports">REPORTS</a>
+            <a href="/leave_approvals">
+                LEAVES{% if pending_count|default(0) > 0 %}<span class="badge-count">{{ pending_count }}</span>{% endif %}
+            </a>
+            <a href="/manage_employees">MANAGE STAFF</a>
+            <a href="/logout">LOGOUT</a>
+        </nav>
+    </header>
+
+    <div class="container">
+        <h2 class="section-title">DOWNLOAD MASTER REPORT</h2>
+        <div class="download-box">
+            <form method="POST" action="/download_report" style="display:flex; width: 100%; gap:15px; align-items: center;">
+                <select name="month" required>
+                    <option value="" disabled selected>Select Month</option>
+                    <option value="1">January</option><option value="2">February</option>
+                    <option value="3">March</option><option value="4">April</option>
+                    <option value="5">May</option><option value="6">June</option>
+                    <option value="7">July</option><option value="8">August</option>
+                    <option value="9">September</option><option value="10">October</option>
+                    <option value="11">November</option><option value="12">December</option>
+                </select>
+                
+                <select name="year" id="report-year" required></select>
+                <button type="submit" class="btn-download">GENERATE EXCEL</button>
+            </form>
+        </div>
+
+        <h2 class="section-title">ATTENDANCE HISTORY LOG</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Employee Name</th>
+                    <th>Status Code</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for record in history %}
+                <tr>
+                    <td>{{ record.record_date }}</td>
+                    <td>{{ record.name }}</td>
+                    <td><span class="status-badge status-{{ record.status }}">{{ record.status | upper }}</span></td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="3" style="text-align: center; color: #888;">No attendance records found.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            const yearSelect = document.getElementById("report-year");
+            const startYear = 2025; 
+            const currentYear = new Date().getFullYear();
+            const maxYear = currentYear + 10; 
+
+            for (let year = startYear; year <= maxYear; year++) {
+                let option = document.createElement("option");
+                option.value = year;
+                option.text = year;
+                if (year === currentYear) {
+                    option.selected = true;
+                }
+                yearSelect.appendChild(option);
+            }
+        });
+    </script>
+</body>
+</html>

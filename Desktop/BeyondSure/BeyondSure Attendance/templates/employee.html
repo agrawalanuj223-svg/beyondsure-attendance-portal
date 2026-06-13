@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>BeyondSure | Employee Portal</title>
+    <style>
+        :root { --primary: #1a472a; --secondary: #8fbc8f; --accent: #f4f7f6; }
+        body { font-family: 'Segoe UI', sans-serif; background-color: var(--accent); margin: 0; padding: 0; }
+        
+        .header { background-color: white; padding: 15px 40px; display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid var(--primary); }
+        .logo-container { display: flex; align-items: center; gap: 10px; }
+        .logo-img { height: 50px; }
+        .brand-text { font-size: 20px; font-weight: bold; color: var(--primary); }
+        .nav-links a { color: var(--primary); text-decoration: none; font-weight: 600; margin-left: 25px; }
+        
+        .container { max-width: 800px; margin: 30px auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.05); }
+        .section-title { color: var(--primary); border-left: 5px solid var(--secondary); padding-left: 15px; margin-bottom: 20px; font-size: 20px; font-weight: bold; }
+        
+        input, select { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; font-size: 14px; }
+        .btn-submit { background-color: var(--primary); color: white; border: none; padding: 12px; width: 100%; border-radius: 6px; font-weight: bold; font-size: 16px; cursor: pointer; transition: 0.3s; }
+        .btn-submit:hover { opacity: 0.9; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th { background-color: #fcfcfc; padding: 15px; border-bottom: 2px solid var(--accent); text-align: left; color: #555; }
+        td { padding: 15px; border-bottom: 1px solid #eee; }
+
+        /* FIXED: Moved status color logic out of inline styles to eliminate syntax highlighter alerts */
+        .status-approved { font-weight: bold; color: #2e7d32; }
+        .status-rejected { font-weight: bold; color: #c62828; }
+        .status-pending { font-weight: bold; color: #ef6c00; }
+    </style>
+</head>
+<body>
+
+    <header class="header">
+        <div class="logo-container">
+            <img src="{{ url_for('static', filename='logo.jpg') }}" class="logo-img" alt="BeyondSure Logo">
+            <span class="brand-text">BeyondSure</span>
+        </div>
+        <nav class="nav-links">
+            <span>Welcome, <b>{{ name }}</b></span>
+            <a href="/logout">LOGOUT</a>
+        </nav>
+    </header>
+
+    <div class="container">
+        <h2 class="section-title">APPLY FOR LEAVE</h2>
+        
+        <form method="POST" action="/api/request_leave">
+            
+            <label style="font-weight: bold; color: var(--primary);">Select Date:</label>
+            <input type="date" name="request_date" required>
+            
+            <label style="font-weight: bold; color: var(--primary); margin-top: 10px; display: block;">Type of Leave:</label>
+            <select name="leave_type" required>
+                <option value="PL">Privilege Leave (PL)</option>
+                <option value="CL">Casual Leave (CL)</option>
+                <option value="SL">Sick Leave (SL)</option>
+                <option value="RH">Restricted Holiday (RH)</option>
+                <option value="BL">Birthday Leave (BL)</option>
+                <option value="AL">Anniversary Leave (AL)</option>
+            </select>
+            
+            <button type="submit" class="btn-submit">SUBMIT REQUEST</button>
+        </form>
+
+        <h2 class="section-title" style="margin-top: 40px;">MY REQUEST HISTORY</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Type</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for req in requests %}
+                <tr>
+                    <td>{{ req.request_date }}</td>
+                    <td>{{ req.leave_type }}</td>
+                    <td>
+                        <span class="{% if req.status == 'Approved' %}status-approved{% elif req.status == 'Rejected' %}status-rejected{% else %}status-pending{% endif %}">
+                            {{ req.status }}
+                        </span>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="3" style="text-align: center; color: #888;">No leave history logs found.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>

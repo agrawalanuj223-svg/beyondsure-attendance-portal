@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>BeyondSure | Admin Portal</title>
+    <style>
+        :root { --primary: #1a472a; --secondary: #8fbc8f; --accent: #f4f7f6; }
+        body { font-family: 'Segoe UI', sans-serif; background-color: var(--accent); margin: 0; padding: 0; }
+        
+        .header { background-color: white; padding: 15px 40px; display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid var(--primary); }
+        .logo-container { display: flex; align-items: center; gap: 10px; }
+        .logo-img { height: 50px; }
+        .brand-text { font-size: 20px; font-weight: bold; color: var(--primary); }
+        .nav-links a { color: var(--primary); text-decoration: none; font-weight: 600; margin-left: 25px; transition: 0.3s; vertical-align: middle; }
+        .nav-links a:hover { color: var(--secondary); }
+        
+        .container { max-width: 1000px; margin: 30px auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 10px 20px rgba(0,0,0,0.05); }
+        .section-title { color: var(--primary); border-left: 5px solid var(--secondary); padding-left: 15px; margin-top: 40px; }
+        
+        table { width: 100%; border-collapse: separate; border-spacing: 0; margin-top: 20px; }
+        th { background-color: #fcfcfc; padding: 15px; border-bottom: 2px solid var(--accent); color: #555; text-align: left; }
+        td { padding: 15px; border-bottom: 1px solid #eee; }
+        
+        .btn-master { background-color: var(--primary); color: white; width: 100%; padding: 15px; font-size: 16px; margin-top: 20px; border: none; border-radius: 6px; cursor: pointer; }
+        select { padding: 6px; border-radius: 4px; }
+
+        /* Modal Styling */
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; z-index: 1000; }
+        .modal-content { background: white; padding: 30px; border-radius: 8px; width: 300px; text-align: center; }
+
+        /* Notification Badge Styling */
+        .badge-count {
+            background-color: #c62828;
+            color: white;
+            border-radius: 50%;
+            padding: 2px 7px;
+            font-size: 11px;
+            font-weight: bold;
+            margin-left: 5px;
+            display: inline-block;
+            vertical-align: middle;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+    </style>
+</head>
+<body>
+
+    <header class="header">
+        <div class="logo-container">
+            <img src="{{ url_for('static', filename='logo.jpg') }}" class="logo-img" alt="BeyondSure Logo">
+            <span class="brand-text">BeyondSure</span>
+        </div>
+        <nav class="nav-links">
+            <a href="/">DASHBOARD</a>
+            <a href="/reports">REPORTS</a>
+            <a href="/leave_approvals">
+                LEAVES{% if pending_count|default(0) > 0 %}<span class="badge-count">{{ pending_count }}</span>{% endif %}
+            </a>
+            <a href="/manage_employees">MANAGE STAFF</a>
+            <a href="/logout">LOGOUT</a>
+        </nav>
+    </header>
+
+    <div class="container">
+        <h2 class="section-title">DAILY ATTENDANCE</h2>
+        <input type="date" id="attendance-date" style="margin-bottom: 10px; padding: 8px;">
+        
+        <table>
+            <thead>
+                <tr>
+                    <th><input type="checkbox" id="selectAll" onchange="toggleSelectAll()"></th>
+                    <th>ID</th><th>Name</th><th>Status</th><th>In</th><th>Out</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for emp in employees %}
+                <tr>
+                    <td><input type="checkbox" class="emp-checkbox" value="{{ emp.emp_id }}"></td>
+                    <td><b>{{ emp.emp_code or 'N/A' }}</b></td>
+                    <td>{{ emp.name }}</td>
+                    <td>
+                        <select id="status-{{ emp.emp_id }}" onchange="handleDropdownChange(this, '{{ emp.emp_id }}')">
+                            <option value="p" selected>Present</option>
+                            <option value="wfh">Work From Home (WFH)</option>
+                            <option value="hd">Half Day</option>
+                            <option value="Leave">Leave / Other Status...</option>
+                        </select>
+                    </td>
+                    <td><input type="time" id="in-time-{{ emp.emp_id }}"></td>
+                    <td><input type="time" id="out-time-{{ emp.emp_id }}"></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <button class="btn-master" onclick="saveBulkAttendance()">SAVE SELECTED ATTENDANCE</button>
+    </div>
+
+    <div id="leaveModal" class="modal">
+        <div class="modal-content">
+            <h3>SPECIFY LEAVE TYPE</h3>
+            <input type="hidden" id="modal-emp-id">
+            <select id="modal-leave-type" style="padding:10px; width:100%; margin-top:10px; border-radius:4px; border:1px solid #ddd;">
+                <option value="PL">Privilege Leave (PL)</option>
+                <option value="CL">Casual Leave (CL)</option>
+                <option value="SL">Sick Leave (SL)</option>
+                <option value="CO">Comp Off (CO)</option>
+                <option value="WO">Weekly Off (WO)</option>
+                <option value="RH">Restricted Holiday (RH)</option>
+                <option value="BL">Birthday Leave (BL)</option>
+                <option value="AL">Anniversary Leave (AL)</option>
+                <option value="AB">Unspecified Absent</option>
+            </select>
+            <button class="btn-master" style="padding: 10px;" onclick="confirmLeaveType()">CONFIRM</button>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            const dateInput = document.getElementById('attendance-date');
+            if (!dateInput.value) {
+                dateInput.value = new Date().toISOString().split('T')[0];
+            }
+            checkWeekendDefaultStatus();
+            dateInput.addEventListener('change', checkWeekendDefaultStatus);
+        });
+
+        function checkWeekendDefaultStatus() {
+            const dateInput = document.getElementById('attendance-date').value;
+            if (!dateInput) return;
+            
+            const dateParts = dateInput.split('-');
+            const selectedDate = new Date(dateParts[0], dateParts[1] - 1, dateParts[2]);
+            const dayOfWeek = selectedDate.getDay(); 
+            
+            const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
+            const dropdowns = document.querySelectorAll('tbody select');
+            
+            dropdowns.forEach(selectElement => {
+                let customOption = selectElement.querySelector('.custom-leave-option');
+                
+                if (isWeekend) {
+                    if (selectElement.value === 'p' || (customOption && selectElement.value === customOption.value)) {
+                        if (!customOption) {
+                            customOption = document.createElement('option');
+                            customOption.classList.add('custom-leave-option');
+                            selectElement.insertBefore(customOption, selectElement.options[selectElement.options.length - 1]);
+                        }
+                        customOption.value = 'wo';
+                        customOption.text = "Weekly Off (WO)";
+                        customOption.selected = true;
+                    }
+                } else {
+                    if (customOption && customOption.value === 'wo' && selectElement.value === 'wo') {
+                        selectElement.value = 'p';
+                        customOption.remove();
+                    }
+                }
+            });
+        }
+
+        function toggleSelectAll() {
+            const isChecked = document.getElementById('selectAll').checked;
+            document.querySelectorAll('.emp-checkbox').forEach(cb => cb.checked = isChecked);
+        }
+
+        function handleDropdownChange(selectElement, empId) {
+            if (selectElement.value === 'Leave') {
+                document.getElementById('modal-emp-id').value = empId;
+                document.getElementById('leaveModal').style.display = 'flex'; 
+            }
+        }
+
+        function confirmLeaveType() {
+            const empId = document.getElementById('modal-emp-id').value;
+            const specificLeave = document.getElementById('modal-leave-type').value;
+            const selectElement = document.getElementById('status-' + empId);
+            
+            let customOption = selectElement.querySelector('.custom-leave-option');
+            if (!customOption) {
+                customOption = document.createElement('option');
+                customOption.classList.add('custom-leave-option');
+                selectElement.insertBefore(customOption, selectElement.options[selectElement.options.length - 1]);
+            }
+            
+            customOption.value = specificLeave.toLowerCase();
+            
+            if (specificLeave === 'AB') {
+                customOption.text = "Unspecified Absent";
+            } else if (specificLeave === 'CO') {
+                customOption.text = "Comp Off (CO)";
+            } else if (specificLeave === 'WO') {
+                customOption.text = "Weekly Off (WO)";
+            } else if (specificLeave === 'RH') {
+                customOption.text = "Restricted Holiday (RH)";
+            } else if (specificLeave === 'BL') {
+                customOption.text = "Birthday Leave (BL)";
+            } else if (specificLeave === 'AL') {
+                customOption.text = "Anniversary Leave (AL)";
+            } else {
+                customOption.text = "Leave - " + specificLeave;
+            }
+            
+            customOption.selected = true;
+            document.getElementById('leaveModal').style.display = 'none';
+        }
+
+        async function saveBulkAttendance() {
+            const checkboxes = document.querySelectorAll('.emp-checkbox:checked');
+            if (checkboxes.length === 0) return alert("Select at least one employee.");
+            const dateVal = document.getElementById('attendance-date').value || new Date().toISOString().split('T')[0];
+            
+            let hasError = false;
+            for (let cb of checkboxes) {
+                let empId = cb.value;
+                try {
+                    let response = await fetch('/api/mark_attendance', { 
+                        method: 'POST', 
+                        headers: { 'Content-Type': 'application/json' }, 
+                        body: JSON.stringify({ 
+                            emp_id: empId, 
+                            date: dateVal, 
+                            status: document.getElementById('status-' + empId).value,
+                            in_time: document.getElementById('in-time-' + empId).value,
+                            out_time: document.getElementById('out-time-' + empId).value
+                        }) 
+                    });
+                    if (!response.ok) {
+                        hasError = true;
+                    }
+                } catch(err) {
+                    hasError = true;
+                }
+            }
+            
+            if (hasError) {
+                alert("Warning: Some records failed to save.");
+            } else {
+                alert('Attendance Saved Successfully!');
+                window.location.reload();
+            }
+        }
+    </script>
+</body>
+</html>

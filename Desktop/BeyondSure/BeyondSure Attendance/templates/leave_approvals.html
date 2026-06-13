@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>BeyondSure | Leave Approvals</title>
+    <style>
+        :root { --primary: #1a472a; --secondary: #8fbc8f; --accent: #f4f7f6; }
+        body { font-family: 'Segoe UI', sans-serif; background-color: var(--accent); margin: 0; padding: 0; }
+        
+        .header { background-color: white; padding: 15px 40px; display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid var(--primary); }
+        .logo-img { height: 50px; }
+        .brand-text { font-size: 20px; font-weight: bold; color: var(--primary); margin-left: 10px; }
+        .nav-links a { color: var(--primary); text-decoration: none; font-weight: 600; margin-left: 25px; transition: 0.3s; vertical-align: middle; }
+        .nav-links a:hover { color: var(--secondary); }
+        
+        .container { max-width: 900px; margin: 40px auto; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 10px 20px rgba(0,0,0,0.05); }
+        .section-title { color: var(--primary); border-left: 5px solid var(--secondary); padding-left: 15px; margin-bottom: 30px; font-size: 22px; }
+        
+        table { width: 100%; border-collapse: separate; border-spacing: 0; }
+        th { background-color: #fcfcfc; padding: 15px; border-bottom: 2px solid var(--accent); color: #555; text-align: left; }
+        td { padding: 15px; border-bottom: 1px solid #eee; vertical-align: middle; }
+        
+        .btn { padding: 8px 15px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; color: white; margin-right: 5px; }
+        .btn-approve { background-color: #2e7d32; }
+        .btn-reject { background-color: #c62828; }
+        
+        .badge { padding: 6px 12px; border-radius: 12px; font-size: 12px; font-weight: bold; }
+        .badge-Pending { background-color: #fff3e0; color: #ef6c00; }
+        .badge-Approved { background-color: #e8f5e9; color: #2e7d32; }
+        .badge-Rejected { background-color: #ffebee; color: #c62828; }
+
+        /* Notification Badge Styling */
+        .badge-count {
+            background-color: #c62828;
+            color: white;
+            border-radius: 50%;
+            padding: 2px 7px;
+            font-size: 11px;
+            font-weight: bold;
+            margin-left: 5px;
+            display: inline-block;
+            vertical-align: middle;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+    </style>
+</head>
+<body>
+
+    <header class="header">
+        <div style="display: flex; align-items: center;">
+            <img src="{{ url_for('static', filename='logo.jpg') }}" class="logo-img" alt="BeyondSure Logo">
+            <span class="brand-text">BeyondSure</span>
+        </div>
+        <nav class="nav-links">
+            <a href="/">DASHBOARD</a>
+            <a href="/reports">REPORTS</a>
+            <a href="/leave_approvals">
+                LEAVES{% if pending_count|default(0) > 0 %}<span class="badge-count">{{ pending_count }}</span>{% endif %}
+            </a>
+            <a href="/manage_employees">MANAGE STAFF</a>
+            <a href="/logout">LOGOUT</a>
+        </nav>
+    </header>
+
+    <div class="container">
+        <h2 class="section-title">LEAVE APPROVALS</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Emp Code</th>
+                    <th>Name</th>
+                    <th>Date Requested</th>
+                    <th>Leave Type</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for req in requests %}
+                <tr>
+                    <td><b>{{ req.emp_code or 'N/A' }}</b></td>
+                    <td>{{ req.name }}</td>
+                    <td>{{ req.request_date }}</td>
+                    <td>{{ req.leave_type }}</td>
+                    <td><span class="badge badge-{{ req.status }}">{{ req.status }}</span></td>
+                    <td>
+                        {% if req.status == 'Pending' %}
+                        <form method="POST" action="/api/resolve_leave" style="display:inline;">
+                            <input type="hidden" name="request_id" value="{{ req.request_id }}">
+                            <input type="hidden" name="action" value="Approved">
+                            <button type="submit" class="btn btn-approve">Approve</button>
+                        </form>
+                        <form method="POST" action="/api/resolve_leave" style="display:inline;">
+                            <input type="hidden" name="request_id" value="{{ req.request_id }}">
+                            <input type="hidden" name="action" value="Rejected">
+                            <button type="submit" class="btn btn-reject">Reject</button>
+                        </form>
+                        {% else %}
+                        <span style="color:#888; font-size:13px;">Resolved</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+</body>
+</html>
